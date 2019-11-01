@@ -144,58 +144,7 @@ class TrackControl(ControlSurface):
         if value != 127:
             return
 
-        self._get_current_track()
-        self._song.clip_trigger_quantization = play_quantization
-
-        set_down = self._parent._transport_control.set_down
-        set_left_down = self._parent._transport_control.set_left_down
-        set_right_down = self._parent._transport_control.set_right_down
-
-        if set_down:
-            self._get_playing_clip_slot()
-            if not self._clip:
-                self._get_last_clip()
-
-            if not self._clip:
-                self._clip_slot = self._view.highlighted_clip_slot
-                self._clip = self._clip_slot.clip
-            self._state_observer()
-            self.tasks.clear()
-            self.addTask(self._clip_reset_time,self.resetTrack,None)
-            return
-
-        if set_left_down and set_right_down:
-            self._get_last_clip()
-
-            if not self._clip:
-                self._clip_slot = self._view.highlighted_clip_slot
-                self._clip = self._clip_slot.clip
-            self._state_observer()
-            self.tasks.clear()
-            self.addTask(self._clip_reset_time,self.resetTrack,None)
-            return
-
-        if set_left_down:
-            self._get_previous_clip_slot()
-            if not self._clip:
-                self._clip_slot = self._view.highlighted_clip_slot
-                self._clip = self._clip_slot.clip
-            self._state_observer()
-            self.tasks.clear()
-            self.addTask(self._clip_reset_time,self.resetTrack,None)
-            return
-
-        if set_right_down:
-            self._get_next_clip_slot()
-            if not self._clip:
-                self._clip_slot = self._view.highlighted_clip_slot
-                self._clip = self._clip_slot.clip
-            self._state_observer()
-            self.tasks.clear()
-            self.addTask(self._clip_reset_time,self.resetTrack,None)
-            return
-
-        self._fire_clip()
+        
 
 
 # record functionality
@@ -235,143 +184,7 @@ class TrackControl(ControlSurface):
             self._state_observer()
 
 
-# monitor functionality
-
-    def _handle_monitor_button(self, value):
-        assert isinstance(value, int)
-        assert isinstance(self._monitor_button, ButtonElement)
-        if value != 127:
-            return
-
-        self._get_current_track()
-        
-        self._get_playing_clip_slot()
-        self._state_observer()
-
-        if self._track:
-            if self._track_has_clips():
-                self._track.solo = not self._track.solo
-                self._track.mute = False
-                self._clip = False
-                self._tracks[input_track - 1].solo = True
-                self._get_playing_clip_slot()
-
-# control knob functionality
-    def _handle_control_knob(self, value):
-        assert isinstance(value, int)
-        assert isinstance(self._control_knob, SliderElement)
-        self._get_current_track()
-        if self._track:
-            device = self._track.devices[0]
-            if device:
-                self._view.select_device(device)
-                for param in device.parameters:
-                    if param.name == "Input":
-                        param.value = value
-
-# volume slider functionality
-    def _handle_volume_slider(self, value):
-        assert isinstance(value, int)
-        assert isinstance(self._volume_slider, SliderElement)
-        self._get_current_track()
-
-        if self._track:
-            value = (float(value) / float(127)) * max_mixer_value
-            self._track.mixer_device.volume.value = value
-
-# helpers
-    def _get_current_track(self):
-        self._song = self._parent.song()
-        self._view = self._song.view
-        self._tracks = self._song.tracks
-        trackLength = self._tracks.__len__()
-        if self._trackindex < trackLength:
-            self._track = self._tracks[self._trackindex]
-            self._view.selected_track = self._track
-        else:
-            self._track = False
-
-    def _track_has_clips(self):
-        for clip_slot in self._track.clip_slots:
-            if clip_slot.has_clip:
-                return True
-        return False
-
-    def _get_last_available_clip_slot(self):
-        self._clip_slot = False
-
-        for clip_slot in self._track.clip_slots:
-            if clip_slot.has_clip == False:
-                self._clip_slot = clip_slot
-                self._view.highlighted_clip_slot = self._clip_slot
-                break
-
-    def _get_playing_clip_slot(self):
-        self._clip = False
-        self._clip_slot = False
-        for clip_slot in self._track.clip_slots:
-            if clip_slot:
-                if clip_slot.has_clip and clip_slot.clip.is_playing:
-                    self._clip_slot = clip_slot
-                    self._clip = self._clip_slot.clip
-                    self._view.highlighted_clip_slot = self._clip_slot
-                    self._add_listeners()
-                    break
-
-    def _get_recording_clip_slot(self):
-        self._clip = False
-        self._clip_slot = False
-        for clip_slot in self._track.clip_slots:
-            if clip_slot.has_clip and clip_slot.clip.is_recording:
-                self._clip_slot = clip_slot
-                self._clip = self._clip_slot.clip
-                self._view.highlighted_clip_slot = self._clip_slot
-                self._add_listeners()
-                break
-
-    def _get_previous_clip_slot(self):
-        self._clip = False
-        self._clip_slot = False
-        prev_slot = False
-        for clip_slot in self._track.clip_slots:
-            if clip_slot:
-                if clip_slot.has_clip:
-                    if clip_slot == self._view.highlighted_clip_slot:
-                        break
-                    prev_slot = clip_slot
-
-        if prev_slot:
-            self._clip_slot = prev_slot
-            self._clip = self._clip_slot.clip
-            self._view.highlighted_clip_slot = self._clip_slot
-            self._add_listeners()
-
-    def _get_next_clip_slot(self):
-        self._clip = False
-        self._clip_slot = False
-        was_highlighted_clip = False
-        for clip_slot in self._track.clip_slots:
-            if clip_slot:
-                if clip_slot.has_clip:
-                    if clip_slot == self._view.highlighted_clip_slot:
-                        was_highlighted_clip = True
-                        continue
-                    if was_highlighted_clip:
-                        self._clip_slot = clip_slot
-                        self._clip = self._clip_slot.clip
-                        self._view.highlighted_clip_slot = self._clip_slot
-                        self._add_listeners()
-                        return
-
-    def _get_last_clip(self):
-        self._clip = False
-        self._clip_slot = False
-        for clip_slot in self._track.clip_slots:
-            if clip_slot.has_clip:
-                self._clip_slot = clip_slot
-                self._clip = self._clip_slot.clip
-                self._view.highlighted_clip_slot = self._clip_slot
-                self._add_listeners()
+    
 
 # track listener
     def _add_clip_slot_listener(self):
@@ -390,16 +203,13 @@ class TrackControl(ControlSurface):
 
         if self._track:
             if not Live.Track.Track.solo_has_listener(self._track, self._state_observer):
-                Live.Track.Track.add_solo_listener(
-                    self._track, self._state_observer)
+                Live.Track.Track.add_solo_listener( self._track, self._state_observer)
 
         if self._clip:
             if not Live.Clip.Clip.is_recording_has_listener(self._clip, self._state_observer):
-                Live.Clip.Clip.add_is_recording_listener(
-                    self._clip, self._state_observer)
+                Live.Clip.Clip.add_is_recording_listener( self._clip, self._state_observer)
             if not Live.Clip.Clip.playing_status_has_listener(self._clip, self._state_observer):
-                Live.Clip.Clip.add_playing_status_listener(
-                    self._clip, self._state_observer)
+                Live.Clip.Clip.add_playing_status_listener( self._clip, self._state_observer)
 
     def _disableArm(self):
         self._track.arm = False

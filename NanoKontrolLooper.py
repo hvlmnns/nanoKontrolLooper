@@ -1,18 +1,12 @@
 from __future__ import with_statement
+
 import Live
-
-
-from settings import *
-from _Framework.ButtonElement import ButtonElement
 from _Framework.ControlSurface import ControlSurface
-from _Framework.InputControlElement import *
 
-# from RecordControl import RecordControl
-# from TransportControl import TransportControl
-# from TrackControl import TrackControl
-# from Metronome import Metronome
-
-from SongTimer import SongTimer
+import settings 
+from components.SongTasks import SongTasks
+from components.TransportControl import TransportControl
+from components.TrackControl import TrackControl
 
 class NanoKontrolLooper(ControlSurface):
   __module__ = __name__
@@ -21,42 +15,36 @@ class NanoKontrolLooper(ControlSurface):
   def __init__(self, c_instance):
     ControlSurface.__init__(self, c_instance)
     with self.component_guard():
-      self.SongTimer = SongTimer(self)
-      # self._track_controls = []      
-      #     self._metronome = Metronome(self)
-      #     self._record_control = RecordControl(self)
-      #     self._transport_control = TransportControl(self)
+      self.SongTasks = SongTasks(self)
+      self.TransportControl = TransportControl(self)
+      self.TrackControls = []
+      
+      for index in range(settings.track_controls.__len__()):
+        self.TrackControls.append(TrackControl(self, index))
 
-      #     for index in range(track_controls.__len__()):
-      #         self._track_controls.append(TrackControl(self, index))
 
   def refresh_state(self):
-    return
-    # self._record_control.refresh_state()
-    # self._transport_control.refresh_state()
-    # self._metronome.refresh_state()
-    # for control in self._track_controls:
-    #     control.refresh_state()
+    with self.component_guard():
+      self.SongTasks.refresh()
+      self.TransportControl.refresh()
+      for TrackControl in self.TrackControls:
+        TrackControl.refresh()
+
 
   def disconnect(self):
-    return
-
-    # self._record_control.disconnect()
-    # self._transport_control.disconnect()
-    # self._metronome.disconnect()
-    # for control in self._track_controls:
-    #     control.disconnect()
-
-  def resetTracks(self, slot):
-    for control in self._track_controls:
-      control.resetTrack(slot)
+    with self.component_guard():
+      self.SongTasks.disconnect()
+      self.TransportControl.disconnect()
+      for TrackControl in self.TrackControls:
+        TrackControl.disconnect()
 
   def update_display(self):
     with self.component_guard():
-      self._task_group.update(0.1)
+      self.SongTasks.update()
+      self.TransportControl.update()
+      for TrackControl in self.TrackControls:
+        TrackControl.update()
 
-      # self._metronome.update_display()
-      # self._record_control.update_display()
-      # self._transport_control.update_display()
-      # for control in self._track_controls:
-      #     control.update_display()
+      with self._is_sending_scheduled_messages():
+          self._task_group.update(0.1)
+      

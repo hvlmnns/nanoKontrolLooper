@@ -12,7 +12,7 @@ set_right_button = 105
 rewind_button = 106
 forward_button = 107
 stop_button = 108
-play_button = 109
+start_button = 109
 record_button = 110
 
 # Quantization
@@ -30,10 +30,11 @@ record_button = 110
 # 11: sixtenth
 # 12: sixtenth triplet
 # 13: thirtytwoth
-play_quantization = 4
 record_quantization = 7
 
 max_mixer_value = 0.75 # percent
+knob_control_device_name = "Multi Map Pro 1.0.0"
+knob_control_parameter_name = "Input"
 
 # index starts at 0 so substract 1
 input_track = 17
