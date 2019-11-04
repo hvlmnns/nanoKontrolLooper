@@ -14,13 +14,15 @@ class NanoKontrolLooper(ControlSurface):
 
   def __init__(self, c_instance):
     ControlSurface.__init__(self, c_instance)
+
+    instance = self.instance_identifier()
     with self.component_guard():
       self.SongTasks = SongTasks(self)
       self.TransportControl = TransportControl(self)
       self.TrackControls = []
       
-      for index in range(settings.track_controls.__len__()):
-        self.TrackControls.append(TrackControl(self, index))
+      for index in range(settings.track_controls[instance].__len__()):
+        self.TrackControls.append(TrackControl(self, instance, index))
 
 
   def refresh_state(self):

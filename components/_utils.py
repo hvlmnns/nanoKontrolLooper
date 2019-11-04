@@ -1,10 +1,23 @@
 import Live
 from functools import partial
 
+from .. import settings
+
 from _Framework.ButtonElement import ButtonElement
 from _Framework.EncoderElement import EncoderElement
 from _Framework.SliderElement import SliderElement
+from _Framework.Task import Task
 from _Framework.InputControlElement import *
+
+def __add_btn_task(cls, delay_in_ticks, callback, parameter=None):
+    if delay_in_ticks <= 0 or not callable(callback):
+      return
+    def message(delta):
+      if parameter:
+        callback(parameter)
+      else:
+        callback()
+    delay_in_ticks and cls._btn_tasks.add(Task.sequence(Task.delay(delay_in_ticks), message))
 
 # overwrites some mehtods of the all buttons (_btns) in the passed cls
 def prepare_btns(cls):
@@ -23,19 +36,35 @@ def prepare_btns(cls):
 # adds value listeners to all buttons (_btns) in the passed cls
 # functions must be called "_on_<name>_btn_down" or "_on_<name>_btn_up"
 def add_btn_value_listeners(cls):
+  btn_tasks = getattr(cls, "_btn_tasks", False)
+  update = getattr(cls, "update", False)
+  if not btn_tasks:
+    cls._btn_tasks = Task.TaskGroup(auto_kill=False)
+    cls._add_btn_task = __add_btn_task
+    def update_override():
+      cls._btn_tasks.update(0.1)
+      update()
+    cls.update = update_override
+
   for name in cls._btns:
     btn = cls._btns[name]
     def callback(cls, name, value):
       assert isinstance(value, int)
       assert isinstance(btn, ButtonElement)
       if value == 127:
-        handler = getattr(cls, "_on_" + name + "_btn_down", False)
-        if callable(handler):
-          handler()
+        down_handler = getattr(cls, "_on_" + name + "_btn_down", False)
+        if callable(down_handler):
+          down_handler()
+    
+        hold_handler = getattr(cls, "_on_" + name + "_btn_hold", False)
+        if callable(hold_handler):
+          cls._add_btn_task(cls, settings.btn_hold_down_ticks, hold_handler)
+
       else:
-        handler = getattr(cls, "_on_" + name + "_btn_up", False)
-        if callable(handler):
-          handler()
+        cls._btn_tasks.clear()
+        up_handler = getattr(cls, "_on_" + name + "_btn_up", False)
+        if callable(up_handler):
+          up_handler()
 
     btn.add_value_listener(partial(callback, cls, name))
     
@@ -74,8 +103,8 @@ def turn_btns_off(cls):
 
 # sets data to the song obj
 def set_data(cls, key, value):
-  Live.Song.Song.set_data(cls._song, "_NKL_." + key, value)
+  Live.Song.Song.set_data(cls.song, "_NKL_." + key, value)
 
 # gets data from the song obj
 def get_data(cls, key, default):
-  return Live.Song.Song.get_data(cls._song, "_NKL_." + key, default)
+  return Live.Song.Song.get_data(cls.song, "_NKL_." + key, default)

@@ -1,14 +1,11 @@
 from functools import partial
-
 import Live
 
 def get_current_track(cls):
-  song = cls.parent.song()
-  trackLength = song.tracks.__len__()
-  if cls.index < trackLength:
-    track = song.tracks[cls.index]
-    song.view.selected_track = track
-    _register_observers(cls, track, False, False)
+  trackLength = cls.song.tracks.__len__()
+  if cls.trackIndex < trackLength:
+    track = cls.song.tracks[cls.trackIndex]
+    _register_observers(cls, track)
     return track
   return False
 
@@ -18,14 +15,15 @@ def track_has_clips(track):
       return True
   return False
 
-def get_last_available_clip_slot(self):
-  self._clip_slot = False
-
-  for clip_slot in self._track.clip_slots:
+def get_last_available_clip_slot(cls):
+  track = get_current_track(cls)
+  for clip_slot in track.clip_slots:
     if clip_slot.has_clip == False:
-      self._clip_slot = clip_slot
-      self._view.highlighted_clip_slot = self._clip_slot
-      break
+      cls.song.view.highlighted_clip_slot = clip_slot    
+      _register_observers(cls, track)
+      return clip_slot
+  cls.song.create_scene(len(cls.song.scenes))
+  return get_last_available_clip_slot(cls)
 
 def get_playing_clip_slot(cls):
   track = get_current_track(cls)
@@ -33,80 +31,93 @@ def get_playing_clip_slot(cls):
     for clip_slot in track.clip_slots:
       if clip_slot:
         if clip_slot.has_clip and clip_slot.clip.is_playing:
-          clip = clip_slot.clip
           cls.song.view.highlighted_clip_slot = clip_slot
-          _register_observers(cls, track, clip_slot, clip)
-          return clip
+          _register_observers(cls, track)
+          return clip_slot
   return False
 
-def get_recording_clip_slot(self):
-  self._clip = False
-  self._clip_slot = False
-  for clip_slot in self._track.clip_slots:
-    if clip_slot.has_clip and clip_slot.clip.is_recording:
-      self._clip_slot = clip_slot
-      self._clip = self._clip_slot.clip
-      self._view.highlighted_clip_slot = self._clip_slot
-      self._add_listeners()
-      break
-
-def get_previous_clip_slot(self):
-  self._clip = False
-  self._clip_slot = False
-  prev_slot = False
-  for clip_slot in self._track.clip_slots:
-    if clip_slot:
-      if clip_slot.has_clip:
-        if clip_slot == self._view.highlighted_clip_slot:
-          break
-        prev_slot = clip_slot
-
-  if prev_slot:
-    self._clip_slot = prev_slot
-    self._clip = self._clip_slot.clip
-    self._view.highlighted_clip_slot = self._clip_slot
-    self._add_listeners()
-
-def get_next_clip_slot(self):
-  self._clip = False
-  self._clip_slot = False
-  was_highlighted_clip = False
-  for clip_slot in self._track.clip_slots:
-    if clip_slot:
-      if clip_slot.has_clip:
-        if clip_slot == self._view.highlighted_clip_slot:
-          was_highlighted_clip = True
-          continue
-        if was_highlighted_clip:
-          self._clip_slot = clip_slot
-          self._clip = self._clip_slot.clip
-          self._view.highlighted_clip_slot = self._clip_slot
-          self._add_listeners()
-          return
-
-def get_last_clip(cls):
+def get_recording_clip_slot(cls):
   track = get_current_track(cls)
-  clip = False
+  for clip_slot in track.clip_slots:
+    if clip_slot.has_clip and clip_slot.clip.is_recording:
+      cls.song.view.highlighted_clip_slot = clip_slot
+      _register_observers(cls, track)
+      return clip_slot
+
+def get_first_clip_slot(cls):
+  track = get_current_track(cls)
+  first_clip_slot = False
   if track:
     for clip_slot in track.clip_slots:
       if clip_slot.has_clip:
-        clip = clip_slot.clip
-        cls.song.view.highlighted_clip_slot = clip_slot
-  _register_observers(cls, track, clip_slot, clip)
-  return clip
+        first_clip_slot = clip_slot
+        break
+  if first_clip_slot:
+    cls.song.view.highlighted_clip_slot = first_clip_slot
+    _register_observers(cls, track)
+  return first_clip_slot
 
+def get_previous_clip_slot(cls):
+  track = get_current_track(cls)
+  prev_clip_slot = False
+  for clip_slot in track.clip_slots:
+    if clip_slot.has_clip:
+        if clip_slot == cls.song.view.highlighted_clip_slot:
+          break
+        prev_clip_slot = clip_slot
+  if prev_clip_slot:
+    cls.song.view.highlighted_clip_slot = prev_clip_slot
+    _register_observers(cls, track)
+  return prev_clip_slot
 
-def _register_observers(cls, track, clip_slot, clip):
-  handler = getattr(cls, "_on_state_change", False)
-  if callable(handler):
-    partial(handler, track, clip_slot, clip)
+def get_next_clip_slot(cls):
+  track = get_current_track(cls)
+  next_clip_slot = False
+  was_highlighted_clip = False
+  for clip_slot in track.clip_slots:
+    if clip_slot.has_clip:
+      if clip_slot == cls.song.view.highlighted_clip_slot:
+        was_highlighted_clip = True
+        continue
+      if was_highlighted_clip:
+        next_clip_slot = clip_slot
+        break
+  if next_clip_slot:
+    cls.song.view.highlighted_clip_slot = next_clip_slot
+    _register_observers(cls, track)
+  return next_clip_slot
+
+def get_last_clip_slot(cls):
+  track = get_current_track(cls)
+  last_clip_slot = False
+  if track:
+    for clip_slot in track.clip_slots:
+      if clip_slot.has_clip:
+        last_clip_slot = clip_slot
+  if last_clip_slot:
+    cls.song.view.highlighted_clip_slot = last_clip_slot
+    _register_observers(cls, track)
+  return last_clip_slot
+
+def _register_observers(cls, track):
+  on_state_change = getattr(cls, "_on_state_change", False)
+  if callable(on_state_change):
+    on_state_change()
     if track:
-      if not Live.Track.Track.solo_has_listener(track, partial(handler, track, clip_slot, clip)):
-        Live.Track.Track.add_solo_listener( track, partial(handler, track, clip_slot, clip))
-    if clip:
-      if not Live.Clip.Clip.is_recording_has_listener(clip, partial(handler, track, clip_slot, clip)):
-        Live.Clip.Clip.add_is_recording_listener(clip, partial(handler, track, clip_slot, clip))
-      if not Live.Clip.Clip.playing_status_has_listener(clip, partial(handler, track, clip_slot, clip)):
-        Live.Clip.Clip.add_playing_status_listener(clip, partial(handler, track, clip_slot, clip))
+      if not track.solo_has_listener(on_state_change):
+        track.add_solo_listener(on_state_change)
+      for clip_slot in track.clip_slots:
+        if not clip_slot.playing_status_has_listener(on_state_change):
+          clip_slot.add_playing_status_listener(on_state_change)
+        if not clip_slot.has_clip_has_listener(partial(_register_observers, cls, track)):
+          clip_slot.add_has_clip_listener(partial(_register_observers, cls, track))
+        if not clip_slot.is_triggered_has_listener(on_state_change):
+          clip_slot.add_is_triggered_listener(on_state_change)
+        if clip_slot.clip:
+          if not clip_slot.clip.is_recording_has_listener(on_state_change):
+            clip_slot.clip.add_is_recording_listener(on_state_change)
+          if not clip_slot.clip.playing_status_has_listener(on_state_change):
+            clip_slot.clip.add_playing_status_listener(on_state_change)
+          
     
         
